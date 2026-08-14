@@ -43,9 +43,9 @@ Use username as format string
 → su level03
 
 1. Copy level02 binary file to host machine
-scp -P 7777 level02@127.0.0.1:/home/users/level02/level02 ./Lien-Override/BinaryfromISO/level02
+scp -P 4242 level02@127.0.0.1:/home/users/level02/level02 ./Lien-Override/BinaryfromISO/level02
 
-2. ssh level02@127.0.0.1 -p 7777 OR su level02
+2. ssh level02@127.0.0.1 -p 4242 OR su level02
 Enter password of level02: 
 PwBLgNa8p8MTKW57S7zxVAQCxnCpV8JqTTs9XEBv
 

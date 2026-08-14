@@ -1,11 +1,11 @@
 # level04 notes:
-1. Copy level02 binary file to host machine
-scp -P 7777 level04@127.0.0.1:/home/users/level04/level04 ./Lien-Override/BinaryfromISO/level04
+1. Copy level04 binary file to host machine
+scp -P 4242 level04@127.0.0.1:/home/users/level04/level04 ./Lien-Override/BinaryfromISO/level04
 
 2. Decompiler with this link:
 https://dogbolt.org/?id=d2ff384a-ea37-4370-9ae5-4814118e5725
 
-3. ssh level04@127.0.0.1 -p 7777
+3. ssh level04@127.0.0.1 -p 4242
 Enter password of level04: 
 kgv3tkEb9h2mLkRsPkXRfc2mHbjMxQzvb2FrgKkf
 

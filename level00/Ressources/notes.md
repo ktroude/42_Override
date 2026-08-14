@@ -2,14 +2,14 @@
 
 1. Create and Launch VM
 
-Choose OverRide.iso file and configure parameters, in Network->Port Forwarding: put HOST Port: 7777, Guest Port: 4242
+Choose OverRide.iso file and configure parameters, in Network->Port Forwarding: put HOST Port: 4242, Guest Port: 4242
 OverRide login: level00
 Password: level00
 RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
 Partial RELRO   No canary found   NX enabled    No PIE          No RPATH   No RUNPATH   /home/users/level00/level00
 
 2. In the host machine:
-ssh level00@127.0.0.1 -p 7777
+ssh level00@127.0.0.1 -p 4242
 
 level00@127.0.0.1's password: level00
 
