@@ -7,7 +7,7 @@ ls -la
 -rwsr-s---+ 1 level06 users 5176 Sep 10 2016 level05
 ```
 
-Le bit setuid (s) + propriétaire level06 → le binaire s'exécute avec les droits de level06, même lancé par level05. C'est ce qui nous intéresse : si on obtient une exécution de code, elle tournera en level06.
+Le bit setuid (s) + propriétaire level06 -> le binaire s'exécute avec les droits de level06, même lancé par level05. C'est ce qui nous intéresse : si on obtient une exécution de code, elle tournera en level06.
 
 ### Analyse Ghidra
 
@@ -24,7 +24,7 @@ Deux observations clés :
 
 - Filtre maj/min avant le printf : `if (('@' < c) && (c < '[')) c ^= 0x20;`
 @=0x40, [=0x5b -> intervalle 0x41–0x5a = A–Z. Chaque majuscule devient minuscule.
-Conséquence : notre shellcode ne peut pas être dans le buffer (il serait corrompu) → on le mettra dans l'environnement.
+Conséquence : notre shellcode ne peut pas être dans le buffer (il serait corrompu) -> on le mettra dans l'environnement.
 
 ### Offset
 
