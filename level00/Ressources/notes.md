@@ -9,9 +9,9 @@ RELRO           STACK CANARY      NX            PIE             RPATH      RUNPA
 Partial RELRO   No canary found   NX enabled    No PIE          No RPATH   No RUNPATH   /home/users/level00/level00
 
 2. In the host machine:
-ssh level00@127.0.0.1 -p 4242
+ssh level00@192.168.122.1 -p 4242
 
-level00@127.0.0.1's password: level00
+level00@192.168.122.1's password: level00
 
 RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
 Partial RELRO   No canary found   NX enabled    No PIE          No RPATH   No RUNPATH   /home/users/level00/level00
@@ -30,7 +30,7 @@ lrwxrwxrwx  1 root    root       7 Sep 13  2016 .bash_profile -> .bashrc
 ***********************************
 * 	     -Level00 -		  *
 ***********************************
-5. scp -P 7777 level00@127.0.0.1:/home/users/level00/level00 ./Lien-Override/BinaryfromISO/level00
+5. scp -P 4242 level00@192.168.122.1:/home/users/level00/level00 ./Lien-Override/BinaryfromISO/level00
 
 6. Decompiler Explorer: Go to this link and attach file of level00 to get the password of 5276
 https://dogbolt.org/?id=d2ff384a-ea37-4370-9ae5-4814118e5725

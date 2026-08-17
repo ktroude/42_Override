@@ -1,13 +1,13 @@
 # level01 notes
 
 1. Copy level01 binary file to host machine
-scp -P 4242 level01@127.0.0.1:/home/users/level01/level01 ./Lien-Override/BinaryfromISO/level01
+scp -P 4242 level01@192.168.122.1:/home/users/level01/level01 ./Lien-Override/BinaryfromISO/level01
 
 2. Decompiler Explorer:
 https://dogbolt.org/?id=d2ff384a-ea37-4370-9ae5-4814118e5725
 
 3. Find OFFSET: 
-ssh level01@127.0.0.1 -p 4242
+ssh level01@192.168.122.1 -p 4242
 Enter password of level01: 
 uSq2ehEGT6c9S24zbshexZQBXUGrncxn5sD5QfGL
 
@@ -28,7 +28,7 @@ gdb ./level01
 (gdb) p &a_user_name
 ->a_user_name = 0x804a040
 
-5. ssh level01@127.0.0.1 -p 4242
+5. ssh level01@192.168.122.1 -p 4242
 cd /home/users/level01
 
 cat > /tmp/level01.py << 'EOF'
@@ -66,7 +66,7 @@ cat /home/users/level02/.pass)
 
 OR
 python3 level01.py
-scp -P 4242 payload_level01 level01@127.0.0.1:/tmp/payload_level01
+scp -P 4242 payload_level01 level01@192.168.122.1:/tmp/payload_level01
 
 7. Password of level02: cat /home/users/level02/.pass
 PwBLgNa8p8MTKW57S7zxVAQCxnCpV8JqTTs9XEBv
