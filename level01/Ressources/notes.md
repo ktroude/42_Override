@@ -24,6 +24,9 @@ HIGH ADDRESSES
 │ Saved EBP                    │  <-- overwritten by bytes 80–83
 └──────────────────────────────┘
 ┌──────────────────────────────┐
+│ Saved EDI + Saved EBX        │  <-- pushed by 8 bytes
+└──────────────────────────────┘
+┌──────────────────────────────┐
 │ Padding / locals (28 bytes)  │  <-- before buffer
 │ 0x00–0x1B                    │
 └──────────────────────────────┘
@@ -39,6 +42,11 @@ We do not need to manually place EBP, because:
     Only saved EIP determines where the program jumps
 
 So the exploit only needs to set EIP.
+
+- Total stack allocation = `0x60` = 96 bytes
+- Buffer start offset = `0x1c` = 28 bytes
+Buffer size = Stack allocation − Offset(from ESP to buffer start) + Pushes + Alignment padding	​
+96−28+8+4 = 80 bytes
 
 # RET_ADDR = A_USER_NAME + 20
 
