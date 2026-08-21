@@ -9,7 +9,7 @@ This gives:
     a 128‑byte buffer
     no bounds checking
     ability to overwrite saved EIP
-    ability to redirect execution to your shellcode
+    ability to redirect execution to the shellcode
 
 # OFFSET calculation:
 buf[128]
@@ -36,8 +36,8 @@ gdb ./level04
 
 At this point:
     $esp is the start of the buffer used by gets
-    the address you see (e.g. 0xffffd680) is where your payload will land
-    you choose:
+    the address we see (e.g. 0xffffd680) is where payload will land
+    we choose:
 RET_ADDR = ESP + 0x20
 Example:
     esp = 0xffffd680
