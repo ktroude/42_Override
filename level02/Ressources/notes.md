@@ -1,5 +1,5 @@
 # level02 notes
-
+# Problem
 The important part is here:
 
 FILE* fp = fopen("/home/users/level03/.pass", "r");
@@ -33,7 +33,9 @@ printf(&var_78);
 It should have been:
 printf("%s", &var_78);
 
-Exploit logic:
+So vulnerability in this level02 is: printf(username) is called without a fixed format string when authentication fails, producing a format-string leak.
+
+# Exploit logic
 
 Use username as format string
 → leak stack values with %lx
@@ -60,7 +62,7 @@ second line = password = "A"
 The password is intentionally wrong, so the program reaches:
 printf(username);
 
-You should get many values like:
+We should get many values like:
 0x7fffffffe500 0x0 0x64 0x2a2a2a2a ...
 
 Among them, look for values that look like ASCII when decoded, for example values beginning with:
@@ -108,14 +110,14 @@ Hh74RPnu
 
 6. Decode leaked chunks
 
-Suppose you get chunks like this:
+Suppose we get chunks like this:
 756e505234376848
 45414a3561733951
 377a7143574e6758
 354a35686e475873
 48336750664b394d
 
-Decode them with Python 2 in the VM:
+Decode them with Python in the VM:
 python - << 'EOF'
 chunks = [
     "756e505234376848",
