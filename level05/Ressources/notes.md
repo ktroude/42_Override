@@ -63,8 +63,8 @@ export SHELLCODE=$(python -c 'import sys; sys.stdout.write("\x90"*50000 + "\x31\
 ```
 
 - python write interprète \x90 comme l'octet réel 0x90 alors q'un export VAR="\x90" en bash direct garderait les caractères littéraux \, x, 9, 0. D'où le passage par Python.
-- \x90 = NOP (No Operation). *50000 = un « NOP-sled » de 50 000 octets. Si on atterrit n'importe où dans ce tapis, le CPU glisse de NOP en NOP jusqu'au shellcode. Donc pas besoin d'une adresse chirurgicale, on se donne une grande marge d'erreur.
-- Limite ARG_MAX : un sled trop gros (ex. 200 000) fait échouer le lancement avec Argument list too long (l'environnement dépasse la taille max). 50 000 passe.
+- \x90 = NOP (No Operation). *50000 = un NOP-sled de 50 000 octets. Si on atterrit n'importe où dans cette zone, le CPU glisse de NOP en NOP jusqu'au shellcode. Donc pas besoin d'une adresse précise, on se donne une grande marge d'erreur.
+- Limite ARG_MAX : un sled trop gros (ex. 200 000) fait échouer le lancement avec Argument list too long (l'environnement dépasse la taille max), mais 50 000 passe.
 
 ### Récupérer l'adresse du shellcode
 
