@@ -12,7 +12,7 @@ void main(void)
 
     // parcour le buffer char par char
     for (i = 0; i < (int)strlen(buffer); i++) {
-        
+
         // filtre majuscules -> minuscules
         // '@' = 0x40 (juste avant 'A') et '[' = 0x5b (juste après 'Z')
         // XOR 0x20 sur A-Z donne a-z (décale le bit 5)

